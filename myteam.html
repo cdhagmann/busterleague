@@ -452,7 +452,7 @@
             letter-spacing: 0.3px;
         }
 </style>
-    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
     <!-- Firebase Configuration -->
     <script type="importmap">
     {
@@ -2772,52 +2772,52 @@
             document.getElementById('search').addEventListener('input', renderPlayerSearch);
             document.getElementById('avail-filter').addEventListener('change', renderPlayerSearch);
 
-            // Initialize Firebase sync
+            // Initialize Firebase sync (auth already confirmed above — no timeout needed)
             // Watchlist paths use lowercase team to match Firebase security rules
             var teamPath = team.toLowerCase();
-            setTimeout(async function() {
-                if (window.firebaseInitialized) {
-                    try {
-                        const draftSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftedPlayers'));
-                        if (draftSnapshot.exists()) {
-                            draftedPlayers = unsanitizeFromFirebase(draftSnapshot.val());
+            if (window.firebaseInitialized) {
+                try {
+                    const draftSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftedPlayers'));
+                    if (draftSnapshot.exists()) {
+                        const raw = unsanitizeFromFirebase(draftSnapshot.val());
+                        draftedPlayers = Array.isArray(raw) ? raw : Object.values(raw);
+                        localStorage.setItem('busterLeagueDraft', JSON.stringify({
+                            draftedPlayers: draftedPlayers,
+                            currentPickIndex: draftedPlayers.length
+                        }));
+                        renderAll();
+                    }
+
+                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftedPlayers'), (snapshot) => {
+                        const raw = unsanitizeFromFirebase(snapshot.val() || {});
+                        const newPicks = Array.isArray(raw) ? raw : Object.values(raw);
+                        if (newPicks.length !== draftedPlayers.length) {
+                            draftedPlayers = newPicks;
                             localStorage.setItem('busterLeagueDraft', JSON.stringify({
                                 draftedPlayers: draftedPlayers,
                                 currentPickIndex: draftedPlayers.length
                             }));
                             renderAll();
                         }
+                    });
 
-                        window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftedPlayers'), (snapshot) => {
-                            const data = unsanitizeFromFirebase(snapshot.val() || []);
-                            if (data.length !== draftedPlayers.length) {
-                                draftedPlayers = data;
-                                localStorage.setItem('busterLeagueDraft', JSON.stringify({
-                                    draftedPlayers: draftedPlayers,
-                                    currentPickIndex: data.length
-                                }));
-                                renderAll();
-                            }
-                        });
+                    // Watchlist uses lowercase team path (matches security rules)
+                    const wlSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'watchlists/' + teamPath));
+                    if (wlSnapshot.exists()) {
+                        localStorage.setItem('watchlist_' + team, JSON.stringify(wlSnapshot.val()));
+                        renderAll();
+                    }
 
-                        // Watchlist uses lowercase team path (matches security rules)
-                        const wlSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'watchlists/' + teamPath));
-                        if (wlSnapshot.exists()) {
-                            localStorage.setItem('watchlist_' + team, JSON.stringify(wlSnapshot.val()));
+                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'watchlists/' + teamPath), (snapshot) => {
+                        const data = snapshot.val() || [];
+                        const currentWL = getWatchlist();
+                        if (JSON.stringify(data) !== JSON.stringify(currentWL)) {
+                            localStorage.setItem('watchlist_' + team, JSON.stringify(data));
                             renderAll();
                         }
-
-                        window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'watchlists/' + teamPath), (snapshot) => {
-                            const data = snapshot.val() || [];
-                            const currentWL = getWatchlist();
-                            if (JSON.stringify(data) !== JSON.stringify(currentWL)) {
-                                localStorage.setItem('watchlist_' + team, JSON.stringify(data));
-                                renderAll();
-                            }
-                        });
-                    } catch (_) { /* network errors are non-fatal */ }
-                }
-            }, 1500);
+                    });
+                } catch (_) { /* network errors are non-fatal */ }
+            }
         });
 
         window.addEventListener('storage', function(e) {

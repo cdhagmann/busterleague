@@ -603,49 +603,6 @@
                 });
             }
         }
-        // ===== FIREBASE REAL-TIME SYNC =====
-        document.addEventListener('DOMContentLoaded', async function() {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            if (window.firebaseInitialized) {
-                try {
-                    const draftSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftedPlayers'));
-                    if (draftSnapshot.exists()) {
-                        draftedPlayers = draftSnapshot.val();
-                    }
-
-                    const stateSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftState/currentPickIndex'));
-                    if (stateSnapshot.exists()) {
-                        currentPickIndex = stateSnapshot.val();
-                    }
-
-                    renderAll();
-
-                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftedPlayers'), (snapshot) => {
-                        const firebaseData = snapshot.val() || [];
-                        if (firebaseData.length !== draftedPlayers.length) {
-                            const unsanitizedData = unsanitizeFromFirebase(firebaseData);
-                            draftedPlayers = unsanitizedData;
-                            localStorage.setItem('busterLeagueDraft', JSON.stringify({
-                                draftedPlayers: draftedPlayers,
-                                currentPickIndex: firebaseData.length
-                            }));
-                            currentPickIndex = firebaseData.length;
-                            renderAll();
-                        }
-                    });
-
-                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftState/currentPickIndex'), (snapshot) => {
-                        const pickIndex = snapshot.val();
-                        if (pickIndex !== null && pickIndex !== currentPickIndex) {
-                            currentPickIndex = pickIndex;
-                            renderAll();
-                        }
-                    });
-                } catch (_) { /* network errors are non-fatal */ }
-            }
-        });
-
         // Initialize with embedded data
         let players = [];
         let draftedPlayers = [];
@@ -1224,6 +1181,47 @@
             }
 
             renderAll();
+
+            // ===== FIREBASE REAL-TIME SYNC (runs only after admin auth confirmed) =====
+            if (window.firebaseInitialized) {
+                try {
+                    const draftSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftedPlayers'));
+                    if (draftSnapshot.exists()) {
+                        const raw = unsanitizeFromFirebase(draftSnapshot.val());
+                        draftedPlayers = Array.isArray(raw) ? raw : Object.values(raw);
+                        currentPickIndex = draftedPlayers.length;
+                        renderAll();
+                    }
+
+                    const stateSnapshot = await window.firebaseGet(window.firebaseRef(window.firebaseDB, 'draftState/currentPickIndex'));
+                    if (stateSnapshot.exists()) {
+                        currentPickIndex = stateSnapshot.val();
+                        renderAll();
+                    }
+
+                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftedPlayers'), (snapshot) => {
+                        const raw = unsanitizeFromFirebase(snapshot.val() || {});
+                        const newPicks = Array.isArray(raw) ? raw : Object.values(raw);
+                        if (newPicks.length !== draftedPlayers.length) {
+                            draftedPlayers = newPicks;
+                            currentPickIndex = newPicks.length;
+                            localStorage.setItem('busterLeagueDraft', JSON.stringify({
+                                draftedPlayers: draftedPlayers,
+                                currentPickIndex: currentPickIndex
+                            }));
+                            renderAll();
+                        }
+                    });
+
+                    window.firebaseOnValue(window.firebaseRef(window.firebaseDB, 'draftState/currentPickIndex'), (snapshot) => {
+                        const pickIndex = snapshot.val();
+                        if (pickIndex !== null && pickIndex !== currentPickIndex) {
+                            currentPickIndex = pickIndex;
+                            renderAll();
+                        }
+                    });
+                } catch (_) { /* network errors are non-fatal */ }
+            }
         });
 </script>
 </body>
