@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!user) { window.location.href = 'login.html'; return; }
 
     var team = getMyTeam();
+    applyTeamColors(team);
     players = await fetch('players.json').then(r => r.json());
 
     loadDraftState();

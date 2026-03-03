@@ -1,5 +1,16 @@
 // myteam-utils.js — Pure utility functions for myteam.html
 
+function applyTeamColors(team) {
+    var c = TEAM_COLORS[team] || TEAM_COLORS['STL'];
+    var root = document.documentElement;
+    root.style.setProperty('--team-primary', c.p);
+    root.style.setProperty('--team-primary-light', c.pl);
+    root.style.setProperty('--team-secondary', c.s);
+    root.style.setProperty('--team-secondary-light', c.sl);
+    root.style.setProperty('--team-secondary-subtle', c.ss);
+}
+
+
 function escapeHtml(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;')
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
